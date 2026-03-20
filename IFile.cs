@@ -10,8 +10,8 @@ namespace TMPLAB1
     {
         public void Create();
         public void Open();
-        public void Input(string argument);
-        public void Delete(string name);
+        public string Input(string argument);
+        public string Delete(string name);
         public void Print(string name);
         public void Restore(string name);
         public void Truncate();

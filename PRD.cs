@@ -12,7 +12,7 @@ enum Type { PRODUCT, ASSEMBLY, DETAIL, UNKNOWN };
 
 namespace TMPLAB1
 {
-    public class PRD: IFile
+    public class PRD : IFile
     {
         public byte[] NameSpec { get; set; } = new byte[16];
         public bool IsOpen { get; set; }
@@ -63,21 +63,11 @@ namespace TMPLAB1
             return (read, recordName);
         }
 
-        private string GetPrsFullPath()
-        {
-            string prsFileName = Encoding.UTF8.GetString(NameSpec).TrimEnd('\0');
-            // Используем сохраненный путь к директории, а не Path.GetDirectoryName(CurrentFileName)
-            return Path.Combine(_currentDirectory, prsFileName);
-        }
-
         public void Create()
         {
 
-
             string pureName = Path.GetFileNameWithoutExtension(CurrentFileName);
             string prsName = pureName + ".prs";
-
-
 
             Console.WriteLine(prsName);
 
@@ -180,7 +170,7 @@ namespace TMPLAB1
             return Type.UNKNOWN;
         }
 
-        public void Input(string argument)
+        public string Input(string argument)
         {
             if (!IsOpen) throw new Exception("Файл не открыт");
 
@@ -249,7 +239,7 @@ namespace TMPLAB1
                 Header.p_FreeSpace = newFreeSpace;
             }
 
-            Console.WriteLine($"Компонент '{name}' ({typeStr}) добавлен.");
+            return $"Компонент '{name}' ({typeStr}) добавлен.";
         }
 
         private void CheckRelate(int foundOffset, PRS filePRS)
@@ -272,7 +262,7 @@ namespace TMPLAB1
                     filePRS.Record.p_Product = prsReader.ReadInt32();
                     filePRS.Record.p_Detail = prsReader.ReadInt32();
 
-                    if (filePRS.Record.p_Product == foundOffset || filePRS.Record.p_Detail == foundOffset) 
+                    if (filePRS.Record.p_Product == foundOffset || filePRS.Record.p_Detail == foundOffset)
                         throw new Exception("На компонент имеются ссылки в спецификациях других компонент");
 
                     filePRS.Record.MultiOccurrence = prsReader.ReadUInt16();
@@ -283,7 +273,7 @@ namespace TMPLAB1
             }
         }
 
-        public void Delete(string name)
+        public string Delete(string name)
         {
             if (!IsOpen) throw new Exception("Файл не открыт");
 
@@ -310,7 +300,7 @@ namespace TMPLAB1
                         foundOffset = currentOffset;
                         break;
                     }
-                    currentOffset = read.p_Next;  
+                    currentOffset = read.p_Next;
                 }
             }
 
@@ -324,7 +314,7 @@ namespace TMPLAB1
                 fs.Seek(foundOffset, SeekOrigin.Begin);
                 bw.Write((byte)0xFF);
             }
-            Console.WriteLine($"Компонент '{name}' помечен как удаленный.");
+            return $"Компонент '{name}' помечен как удаленный.";
         }
 
         public void Restore(string name)

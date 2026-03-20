@@ -136,17 +136,6 @@ namespace TMPLAB1
             return (read, recordName);
         }
 
-        private string ReadString(BinaryReader reader)
-        {
-            ushort length = reader.ReadUInt16();
-            byte[] bytes = reader.ReadBytes(length);
-            return Encoding.UTF8.GetString(bytes);
-        }
-        private void WriteString(BinaryWriter writer, byte[] bytes)
-        {
-            writer.Write((ushort)bytes.Length);
-            writer.Write(bytes);
-        }
 
         private int FindComponent(FileStream stream, BinaryReader reader, int firstRecord, string name, ushort RecordLen)
         {
@@ -165,7 +154,7 @@ namespace TMPLAB1
             return -1;
         }
 
-        public void Input(string argument)
+        public string Input(string argument)
         {
             string[] parts = argument
                 .Replace("(", "")
@@ -231,9 +220,8 @@ namespace TMPLAB1
                         Record.p_Product = prsReader.ReadInt32();
                         Record.p_Detail = prsReader.ReadInt32();
                         Record.MultiOccurrence = ++Record.MultiOccurrence;
-                        Console.WriteLine(
- "Увеличина кратность: {mainComponent} -> {detailComponent}");
-                        return;
+                        prsWriter.Write(Record.MultiOccurrence);
+                        return $"Увеличина кратность: {mainComponent} -> {detailComponent}";
                     }
 
                     prsStream.Seek(currentOffset + 1 + 4 + 4, SeekOrigin.Begin);
@@ -271,18 +259,26 @@ namespace TMPLAB1
             prdStream.Seek(mainRecordOffset + 1, SeekOrigin.Begin);
             prdWriter.Write(newRecordOffset);
 
-            Console.WriteLine($"Добавлена связь: {mainComponent} -> {detailComponent}");
+            return $"Добавлена связь: {mainComponent} -> {detailComponent}";
         }
 
         public void Print(string argument)
         {
-            using (FileStream fs = new FileStream(CurrentFileName, FileMode.Open, FileAccess.Read))
-            using (BinaryReader br = new BinaryReader(fs))
-            {
-                fs.Seek(0, SeekOrigin.Begin);
+            string prdFileName = Path.ChangeExtension(CurrentFileName, ".prd");
+            PRD filePRD = new PRD(prdFileName);
+            string productName;
+            string detailName;
+            bool foundRelation = false;
 
-                Header.p_FirstRecord = br.ReadInt32();
-                Header.p_FreeSpace = br.ReadInt32();
+            using (FileStream prsStream = new FileStream(CurrentFileName, FileMode.Open, FileAccess.Read))
+            using (BinaryReader prsReader = new BinaryReader(prsStream))
+            using (FileStream prdStream = new FileStream(filePRD.CurrentFileName, FileMode.Open, FileAccess.Read))
+            using (BinaryReader prdReader = new BinaryReader(prdStream))
+            {
+                prsStream.Seek(0, SeekOrigin.Begin);
+
+                Header.p_FirstRecord = prsReader.ReadInt32();
+                Header.p_FreeSpace = prsReader.ReadInt32();
 
                 int currentOffset = Header.p_FirstRecord;
 
@@ -292,41 +288,54 @@ namespace TMPLAB1
                     return;
                 }
 
+                prdStream.Seek(2, SeekOrigin.Begin);
+                filePRD.Header.RecordLen = prdReader.ReadUInt16();
+                filePRD.Header.p_FirstRecord = prdReader.ReadInt32();
+
                 while (currentOffset != -1)
                 {
-                    if (currentOffset < 8 || currentOffset >= fs.Length)
-                        throw new Exception("Файл поврежден");
+                    prsStream.Seek(currentOffset, SeekOrigin.Begin);
 
-                    fs.Seek(currentOffset, SeekOrigin.Begin);
+                    Record.FlagDelete = prsReader.ReadByte();
+                    Record.p_Product = prsReader.ReadInt32();
+                    Record.p_Detail = prsReader.ReadInt32();
 
-                    byte flagDelete = br.ReadByte();
-                    int p_FirstComp = br.ReadInt32();
-                    int p_Next = br.ReadInt32();
-
-                    ushort mainLen = br.ReadUInt16();
-                    byte[] mainBytes = br.ReadBytes(mainLen);
-                    string main = Encoding.UTF8.GetString(mainBytes);
-
-                    ushort detailLen = br.ReadUInt16();
-                    byte[] detailBytes = br.ReadBytes(detailLen);
-                    string detail = Encoding.UTF8.GetString(detailBytes);
-
-                    if (flagDelete == 0)
+                    if (!Record.IsDeleted)
                     {
-                        if (argument == "*" || argument == main)
+                        prdStream.Seek(Record.p_Product, SeekOrigin.Begin);
+                        (filePRD.Record, productName) = ReadRecord(prdReader, filePRD.Header.RecordLen);
+
+                        if (argument != "*")
                         {
-                            Console.WriteLine($"{main} -> {detail}");
+                            if (argument != productName)
+                            {
+                                currentOffset = Record.p_Next;
+                                continue;
+                            }
                         }
+
+                        prdStream.Seek(Record.p_Detail, SeekOrigin.Begin);
+                        (filePRD.Record, detailName) = ReadRecord(prdReader, filePRD.Header.RecordLen);
+
+                        foundRelation = true;
+                        Console.WriteLine($"{productName} -> {detailName}");
                     }
 
-                    currentOffset = p_Next;
+                    Record.MultiOccurrence = prsReader.ReadUInt16();
+                    Record.p_Next = prsReader.ReadInt32();
+
+                    currentOffset = Record.p_Next;
                 }
+
+                if (!foundRelation) throw new Exception($"Компонент '{argument}' не найден, либо является деталью!");
             }
         }
 
-        public void Delete(string argument)
+        public string Delete(string argument)
         {
             if (!IsOpen) throw new Exception("Файл не открыт");
+
+            string message;
 
             string[] parts = argument
              .Replace("(", "")
@@ -356,8 +365,7 @@ namespace TMPLAB1
 
                 if (currentOffset == -1)
                 {
-                    Console.WriteLine("Файл пуст.");
-                    return;
+                    throw new ArgumentNullException("Файл пуст.");
                 }
 
                 prdStream.Seek(2, SeekOrigin.Begin);
@@ -389,19 +397,18 @@ namespace TMPLAB1
                             Record.p_Product = prsReader.ReadInt32();
                             Record.p_Detail = prsReader.ReadInt32();
                             prsWriter.Write(--Record.MultiOccurrence);
-                            Console.WriteLine($"У связи {product} -> {detail} уменьшена кратность");
+                            return $"У связи {product} -> {detail} уменьшена кратность";
                         }
                         else
                         {
                             prsWriter.Write((byte)0xFF);
-                            Console.WriteLine($"Связь {product} -> {detail} помечена на удаление");
+                            return $"У связи {product} -> {detail} уменьшена кратность";
                         }
-
-                        break;
                     }
                     currentOffset = Record.p_Next;
                 }
-                if (currentOffset == -1) throw new Exception("Связи не существует!");
+
+                throw new Exception("Связи не существует!");
             }
         }
         public void Restore(string name)
