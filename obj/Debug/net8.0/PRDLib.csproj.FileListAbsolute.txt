@@ -1,0 +1,11 @@
+C:\Users\Ярослав\source\repos\PRDLib\bin\Debug\net8.0\PRDLib.deps.json
+C:\Users\Ярослав\source\repos\PRDLib\bin\Debug\net8.0\PRDLib.dll
+C:\Users\Ярослав\source\repos\PRDLib\bin\Debug\net8.0\PRDLib.pdb
+C:\Users\Ярослав\source\repos\PRDLib\obj\Debug\net8.0\PRDLib.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Ярослав\source\repos\PRDLib\obj\Debug\net8.0\PRDLib.AssemblyInfoInputs.cache
+C:\Users\Ярослав\source\repos\PRDLib\obj\Debug\net8.0\PRDLib.AssemblyInfo.cs
+C:\Users\Ярослав\source\repos\PRDLib\obj\Debug\net8.0\PRDLib.csproj.CoreCompileInputs.cache
+C:\Users\Ярослав\source\repos\PRDLib\obj\Debug\net8.0\PRDLib.dll
+C:\Users\Ярослав\source\repos\PRDLib\obj\Debug\net8.0\refint\PRDLib.dll
+C:\Users\Ярослав\source\repos\PRDLib\obj\Debug\net8.0\PRDLib.pdb
+C:\Users\Ярослав\source\repos\PRDLib\obj\Debug\net8.0\ref\PRDLib.dll
