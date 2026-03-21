@@ -9,3 +9,15 @@ C:\Users\Ярослав\source\repos\PRDLib\obj\Debug\net8.0\PRDLib.dll
 C:\Users\Ярослав\source\repos\PRDLib\obj\Debug\net8.0\refint\PRDLib.dll
 C:\Users\Ярослав\source\repos\PRDLib\obj\Debug\net8.0\PRDLib.pdb
 C:\Users\Ярослав\source\repos\PRDLib\obj\Debug\net8.0\ref\PRDLib.dll
+D:\НГТУ\4 семестр\ТиМП\ВСЯ 1 ЛАБА\Lib\bin\Debug\net8.0\PRDLib.deps.json
+D:\НГТУ\4 семестр\ТиМП\ВСЯ 1 ЛАБА\Lib\bin\Debug\net8.0\PRDLib.dll
+D:\НГТУ\4 семестр\ТиМП\ВСЯ 1 ЛАБА\Lib\bin\Debug\net8.0\PRDLib.pdb
+D:\НГТУ\4 семестр\ТиМП\ВСЯ 1 ЛАБА\Lib\obj\Debug\net8.0\PRDLib.GeneratedMSBuildEditorConfig.editorconfig
+D:\НГТУ\4 семестр\ТиМП\ВСЯ 1 ЛАБА\Lib\obj\Debug\net8.0\PRDLib.AssemblyInfoInputs.cache
+D:\НГТУ\4 семестр\ТиМП\ВСЯ 1 ЛАБА\Lib\obj\Debug\net8.0\PRDLib.AssemblyInfo.cs
+D:\НГТУ\4 семестр\ТиМП\ВСЯ 1 ЛАБА\Lib\obj\Debug\net8.0\PRDLib.csproj.CoreCompileInputs.cache
+D:\НГТУ\4 семестр\ТиМП\ВСЯ 1 ЛАБА\Lib\obj\Debug\net8.0\PRDLib.sourcelink.json
+D:\НГТУ\4 семестр\ТиМП\ВСЯ 1 ЛАБА\Lib\obj\Debug\net8.0\PRDLib.dll
+D:\НГТУ\4 семестр\ТиМП\ВСЯ 1 ЛАБА\Lib\obj\Debug\net8.0\refint\PRDLib.dll
+D:\НГТУ\4 семестр\ТиМП\ВСЯ 1 ЛАБА\Lib\obj\Debug\net8.0\PRDLib.pdb
+D:\НГТУ\4 семестр\ТиМП\ВСЯ 1 ЛАБА\Lib\obj\Debug\net8.0\ref\PRDLib.dll

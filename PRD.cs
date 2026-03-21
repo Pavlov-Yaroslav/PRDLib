@@ -14,11 +14,13 @@ namespace TMPLAB1
 {
     public class PRD : IFile
     {
+        const int PRD_NEXT_OFFSET = 5;
+        const int PRS_NEXT_OFFSET = 11;
         public byte[] NameSpec { get; set; } = new byte[16];
         public bool IsOpen { get; set; }
         public string CurrentFileName { get; set; }
 
-        private string _currentDirectory; // Добавить это поле
+        private string _currentDirectory;
 
         public HeaderPRD Header { get; set; } = new HeaderPRD();
 
@@ -39,12 +41,12 @@ namespace TMPLAB1
         public PRD(string fileName)
         {
             CurrentFileName = fileName;
-            _currentDirectory = Path.GetDirectoryName(fileName) ?? string.Empty; // Добавить
+            _currentDirectory = Path.GetDirectoryName(fileName) ?? string.Empty;
         }
         public PRD(string fileName, string recLen)
         {
             CurrentFileName = fileName;
-            _currentDirectory = Path.GetDirectoryName(fileName) ?? string.Empty; // Добавить
+            _currentDirectory = Path.GetDirectoryName(fileName) ?? string.Empty;
             Header.RecordLen = ushort.Parse(recLen);
             Header.p_FirstRecord = -1;
             Header.p_FreeSpace = 0;
@@ -104,10 +106,9 @@ namespace TMPLAB1
                 {
                     Console.Write("Хотите пересоздать файл с данным именем? (y/n): ");
                     char res = Console.ReadKey(true).KeyChar;
-                    Console.WriteLine(res);
 
-                    if (res == 'n' || res == 'N') return;
-                    if (res == 'y' || res == 'Y') break;
+                    if ((res == 'n') || (res == 'N')) return;
+                    if ((res == 'y') || (res == 'Y')) break;
                 }
             }
 
@@ -134,7 +135,10 @@ namespace TMPLAB1
 
         public void Open()
         {
-            if (!File.Exists(CurrentFileName)) throw new Exception($"Файла {CurrentFileName} не существует");
+            if (!File.Exists(CurrentFileName))
+            { 
+                throw new Exception($"Файла {CurrentFileName} не существует");
+            } 
 
             try
             {
@@ -143,14 +147,20 @@ namespace TMPLAB1
                     Header.Signature = br.ReadBytes(2);
                     string signatureStr = Encoding.ASCII.GetString(Header.Signature);
 
-                    if (signatureStr != "PS") throw new Exception("Неверная сигнатура файла");
+                    if (signatureStr != "PS")
+                    {
+                        throw new Exception("Неверная сигнатура файла");
+                    }
 
                     Header.RecordLen = br.ReadUInt16();
                     Header.p_FirstRecord = br.ReadInt32();
                     Header.p_FreeSpace = br.ReadInt32();
                     Header.NameSpec = br.ReadBytes(16);
 
-                    if (NameSpec.Length < 16) throw new Exception("Файл поврежден: неполный заголовок");
+                    if (NameSpec.Length < 16)
+                    {
+                        throw new Exception("Файл поврежден: неполный заголовок");
+                    }
                 }
 
                 IsOpen = true;
@@ -167,12 +177,16 @@ namespace TMPLAB1
             if (typeName == "Изделие") return Type.PRODUCT;
             if (typeName == "Узел") return Type.ASSEMBLY;
             if (typeName == "Деталь") return Type.DETAIL;
+
             return Type.UNKNOWN;
         }
 
         public string Input(string argument)
         {
-            if (!IsOpen) throw new Exception("Файл не открыт");
+            if (!IsOpen)
+            { 
+                throw new Exception("Файл не открыт");
+            } 
 
             string[] parts = argument
                 .Replace("(", "")
@@ -184,9 +198,15 @@ namespace TMPLAB1
             string typeStr = parts[1];
             Type type = GetComponentType(typeStr);
 
-            if (type == Type.UNKNOWN) throw new Exception("Неизвестный тип компонента");
+            if (type == Type.UNKNOWN)
+            { 
+                throw new Exception("Неизвестный тип компонента");
+            } 
 
-            if (name.Length > Header.RecordLen) throw new Exception("Превышена максимальная длина имени");
+            if (name.Length > Header.RecordLen)
+            { 
+                 throw new Exception("Превышена максимальная длина имени");
+            }
 
             byte[] nameBytes = Encoding.UTF8.GetBytes(name);
 
@@ -197,13 +217,13 @@ namespace TMPLAB1
             using (BinaryWriter bw = new BinaryWriter(fs))
             {
                 int currentOffset = Header.p_FirstRecord;
-                while (currentOffset != -1 && currentOffset < fs.Length)
+                while ((currentOffset != -1) && (currentOffset < fs.Length))
                 {
                     fs.Seek(currentOffset, SeekOrigin.Begin);
 
                     (RecordPRD read, string nameStr) = ReadRecord(br);
 
-                    if (nameStr == name && !read.IsDeleted)
+                    if ((nameStr == name) && (!read.IsDeleted))
                     {
                         throw new Exception($"Компонент с именем '{name}' уже существует!");
                     }
@@ -223,7 +243,7 @@ namespace TMPLAB1
                 bw.Write(newRecord.p_FirstComp);
                 bw.Write(newRecord.p_Next);
                 byte[] nameBuffer = new byte[Header.RecordLen];
-                Array.Copy(nameBytes, nameBuffer, nameBytes.Length);
+                Array.Copy(nameBytes, nameBuffer, Math.Min(nameBytes.Length, nameBuffer.Length));
 
                 bw.Write(nameBuffer);
                 bw.Flush();
@@ -262,8 +282,11 @@ namespace TMPLAB1
                     filePRS.Record.p_Product = prsReader.ReadInt32();
                     filePRS.Record.p_Detail = prsReader.ReadInt32();
 
-                    if (filePRS.Record.p_Product == foundOffset || filePRS.Record.p_Detail == foundOffset)
+                    if ((filePRS.Record.p_Product == foundOffset) || (filePRS.Record.p_Detail == foundOffset))
+                    { 
                         throw new Exception("На компонент имеются ссылки в спецификациях других компонент");
+                    } 
+                        
 
                     filePRS.Record.MultiOccurrence = prsReader.ReadUInt16();
                     filePRS.Record.p_Next = prsReader.ReadInt32();
@@ -275,9 +298,15 @@ namespace TMPLAB1
 
         public string Delete(string name)
         {
-            if (!IsOpen) throw new Exception("Файл не открыт");
+            if (!IsOpen)
+            { 
+                throw new Exception("Файл не открыт");
+            }
 
-            if (string.IsNullOrEmpty(name)) throw new Exception("Укажите имя компонента для удаления");
+            if (string.IsNullOrEmpty(name))
+            { 
+                throw new Exception("Укажите имя компонента для удаления");
+            } 
 
             int foundOffset = -1;
 
@@ -289,13 +318,13 @@ namespace TMPLAB1
             using (BinaryReader br = new BinaryReader(fs))
             {
                 int currentOffset = Header.p_FirstRecord;
-                while (currentOffset != -1 && currentOffset < fs.Length)
+                while ((currentOffset != -1) && (currentOffset < fs.Length))
                 {
                     fs.Seek(currentOffset, SeekOrigin.Begin);
 
                     (RecordPRD read, string nameStr) = ReadRecord(br);
 
-                    if (nameStr == name && !read.IsDeleted)
+                    if ((nameStr == name) && (!read.IsDeleted))
                     {
                         foundOffset = currentOffset;
                         break;
@@ -319,9 +348,15 @@ namespace TMPLAB1
 
         public void Restore(string name)
         {
-            if (!IsOpen) throw new Exception("Файл не открыт");
+            if (!IsOpen)
+            { 
+                throw new Exception("Файл не открыт");
+            }
 
-            if (string.IsNullOrEmpty(name)) throw new Exception("Укажите имя компонента для восстановления");
+            if (string.IsNullOrEmpty(name))
+            { 
+                throw new Exception("Укажите имя компонента для восстановления");
+            } 
 
             if (name == "*")
             {
@@ -335,7 +370,7 @@ namespace TMPLAB1
                 int currentOffset = Header.p_FirstRecord;
                 int foundOffset = -1;
 
-                while (currentOffset != -1 && currentOffset < fs.Length)
+                while ((currentOffset != -1) && (currentOffset < fs.Length))
                 {
                     fs.Seek(currentOffset, SeekOrigin.Begin);
 
@@ -344,8 +379,10 @@ namespace TMPLAB1
                     if (nameStr == name)
                     {
                         if (!read.IsDeleted)
+                        { 
                             throw new Exception($"Компонент '{name}' не удален");
-
+                        }
+                            
                         foundOffset = currentOffset;
                         break;
                     }
@@ -354,7 +391,10 @@ namespace TMPLAB1
                 }
 
                 if (foundOffset == -1)
+                { 
                     throw new Exception($"Компонент '{name}' не найден");
+                }
+                    
 
                 using (BinaryWriter bw = new BinaryWriter(fs))
                 {
@@ -375,7 +415,7 @@ namespace TMPLAB1
                 int currentOffset = Header.p_FirstRecord;
                 int restoredCount = 0;
 
-                while (currentOffset != -1 && currentOffset < fs.Length)
+                while ((currentOffset != -1) && (currentOffset < fs.Length))
                 {
                     fs.Seek(currentOffset, SeekOrigin.Begin);
 
@@ -431,7 +471,7 @@ namespace TMPLAB1
                     // ЭТАП 1: Первый проход - запомнить маппинг offset'ов
                     List<(int oldOffset, long newOffset, RecordPRD record, string name)> liveRecords = new();
 
-                    while (currentOffset != -1 && currentOffset < sourceFs.Length)
+                    while ((currentOffset != -1) && (currentOffset < sourceFs.Length))
                     {
                         sourceFs.Seek(currentOffset, SeekOrigin.Begin);
                         (RecordPRD read, string nameStr) = ReadRecord(br);
@@ -448,8 +488,7 @@ namespace TMPLAB1
 
                             liveRecords.Add((currentOffset, recordStart, read, nameStr));
 
-                            if (newFirstRec == -1)
-                                newFirstRec = (int)recordStart;
+                            if (newFirstRec == -1) newFirstRec = (int)recordStart;
 
                             lastValidOffset = (int)recordStart;
                         }
@@ -465,9 +504,18 @@ namespace TMPLAB1
                     for (int i = 0; i < liveRecords.Count; i++)
                     {
                         long recordPos = liveRecords[i].newOffset;
-                        int nextPointer = (i < liveRecords.Count - 1) ? (int)liveRecords[i + 1].newOffset : -1;
+                        int nextPointer;
 
-                        destFs.Seek(recordPos + 5, SeekOrigin.Begin); // +5 = flag(1) + p_FirstComp(4)
+                        if (i < (liveRecords.Count - 1))
+                        {
+                            nextPointer = (int)liveRecords[i + 1].newOffset;
+                        }
+                        else
+                        {
+                            nextPointer = -1;
+                        }
+
+                        destFs.Seek(recordPos + PRD_NEXT_OFFSET, SeekOrigin.Begin); // +5 = flag(1) + p_FirstComp(4)
                         bw.Write(nextPointer);
                     }
 
@@ -487,6 +535,7 @@ namespace TMPLAB1
                 // ЭТАП 4: Синхронизировать PRS
                 string prsFileName = Encoding.UTF8.GetString(Header.NameSpec).TrimEnd('\0');
                 string prsFullPath = Path.Combine(_currentDirectory, prsFileName);
+
                 if (File.Exists(prsFullPath))
                 {
                     UpdatePrsAfterPrdTruncate(prsFullPath, offsetMapForPrs);
@@ -496,8 +545,7 @@ namespace TMPLAB1
             }
             catch
             {
-                if (File.Exists(tempFile))
-                    File.Delete(tempFile);
+                if (File.Exists(tempFile)) File.Delete(tempFile);
                 throw;
             }
         }
@@ -525,7 +573,7 @@ namespace TMPLAB1
                     List<(int oldOffset, long newOffset, int p_Product, int p_Detail, ushort multiOcc)> liveRecords = new();
 
                     // ЭТАП 1: Первый проход
-                    while (currentOffset != -1 && currentOffset < sourceFs.Length)
+                    while ((currentOffset != -1) && (currentOffset < sourceFs.Length))
                     {
                         sourceFs.Seek(currentOffset, SeekOrigin.Begin);
 
@@ -540,11 +588,9 @@ namespace TMPLAB1
                             long recordPos = destFs.Position;
 
                             // Обновляем ссылки на PRD если они есть в маппинге
-                            if (prdOffsetMap.ContainsKey(p_Product))
-                                p_Product = prdOffsetMap[p_Product];
+                            if (prdOffsetMap.ContainsKey(p_Product)) p_Product = prdOffsetMap[p_Product];
 
-                            if (prdOffsetMap.ContainsKey(p_Detail))
-                                p_Detail = prdOffsetMap[p_Detail];
+                            if (prdOffsetMap.ContainsKey(p_Detail)) p_Detail = prdOffsetMap[p_Detail];
 
                             bw.Write(flagDelete);
                             bw.Write(p_Product);
@@ -554,8 +600,7 @@ namespace TMPLAB1
 
                             liveRecords.Add((currentOffset, recordPos, p_Product, p_Detail, multiOccurrence));
 
-                            if (newFirstRecord == -1)
-                                newFirstRecord = (int)recordPos;
+                            if (newFirstRecord == -1) newFirstRecord = (int)recordPos;
                         }
 
                         currentOffset = p_Next;
@@ -565,9 +610,17 @@ namespace TMPLAB1
                     for (int i = 0; i < liveRecords.Count; i++)
                     {
                         long recordPos = liveRecords[i].newOffset;
-                        int nextPointer = (i < liveRecords.Count - 1) ? (int)liveRecords[i + 1].newOffset : -1;
+                        int nextPointer;
+                        if (i < (liveRecords.Count - 1))
+                        {
+                            nextPointer = (int)liveRecords[i + 1].newOffset;
+                        }
+                        else
+                        {
+                            nextPointer = -1;
+                        }
 
-                        destFs.Seek(recordPos + 11, SeekOrigin.Begin); // +11 = flag(1) + p_Product(4) + p_Detail(4) + multiOcc(2)
+                        destFs.Seek(recordPos + PRS_NEXT_OFFSET, SeekOrigin.Begin); // +11 = flag(1) + p_Product(4) + p_Detail(4) + multiOcc(2)
                         bw.Write(nextPointer);
                     }
 
@@ -583,12 +636,10 @@ namespace TMPLAB1
             }
             catch
             {
-                if (File.Exists(tempFile))
-                    File.Delete(tempFile);
+                if (File.Exists(tempFile)) File.Delete(tempFile);
                 throw;
             }
         }
-
 
         public void PrintDev()
         {
@@ -612,7 +663,7 @@ namespace TMPLAB1
 
                     Console.WriteLine($"HEADER: p_FirstRecord {Header.p_FirstRecord} | NameSpec: {NameSpec} | FreeSpace: {Header.p_FreeSpace} | RecordLen: {Header.RecordLen}");
 
-                    while (offset != -1 && offset < fs.Length)
+                    while ((offset != -1) && (offset < fs.Length))
                     {
                         fs.Seek(offset, SeekOrigin.Begin);
 
@@ -632,6 +683,7 @@ namespace TMPLAB1
                 throw new Exception("Ошибка чтения: " + ex.Message);
             }
         }
+
         public void Print(string name)
         {
             if (name == "*")
@@ -652,7 +704,7 @@ namespace TMPLAB1
                 int currentOffset = Header.p_FirstRecord;
                 int firstComp = 0;
 
-                while (currentOffset != -1 && currentOffset < prdStream.Length)
+                while ((currentOffset != -1) && (currentOffset < prdStream.Length))
                 {
                     prdStream.Seek(currentOffset, SeekOrigin.Begin);
                     (RecordPRD read, string nameStr) = ReadRecord(prdReader);
@@ -669,7 +721,10 @@ namespace TMPLAB1
                 }
 
                 if (currentOffset == -1)
+                { 
                     throw new Exception($"Компонент не найден!");
+                }
+                    
 
                 Console.WriteLine();
                 Console.WriteLine(name);
@@ -685,8 +740,9 @@ namespace TMPLAB1
                 Console.WriteLine();
             }
         }
-        private Dictionary<string, List<(string childName, bool isAssembly, string childFirstCompRef)>> BuildChildrenMap(
-            FileStream prsStream, FileStream prdStream, BinaryReader prsReader, BinaryReader prdReader)
+
+        private Dictionary<string, List<(string childName, bool isAssembly, string childFirstCompRef)>> 
+        BuildChildrenMap(FileStream prsStream, FileStream prdStream, BinaryReader prsReader, BinaryReader prdReader)
         {
             var childrenMap = new Dictionary<string, List<(string, bool, string)>>();
 
@@ -696,7 +752,7 @@ namespace TMPLAB1
 
             int offset = firstRecord;
 
-            while (offset != -1 && offset < prsStream.Length)
+            while ((offset != -1) && (offset < prsStream.Length))
             {
                 prsStream.Seek(offset, SeekOrigin.Begin);
 
@@ -726,7 +782,10 @@ namespace TMPLAB1
 
                 // Добавляем в карту
                 if (!childrenMap.ContainsKey(prodName))
+                { 
                     childrenMap[prodName] = new List<(string, bool, string)>();
+                }
+                    
 
                 childrenMap[prodName].Add((detailName, isAssembly, detailRefStr));
 
@@ -741,7 +800,10 @@ namespace TMPLAB1
             string parentName, string prefix)
         {
             if (!childrenMap.ContainsKey(parentName))
+            { 
                 return;
+            }
+                
 
             var children = childrenMap[parentName];
 
@@ -783,7 +845,7 @@ namespace TMPLAB1
                     // Рисуем шапку таблицы
                     DrawTableHeader();
 
-                    while (offset != -1 && offset < fs.Length)
+                    while ((offset != -1) && (offset < fs.Length))
                     {
                         fs.Seek(offset, SeekOrigin.Begin);
 
@@ -823,8 +885,14 @@ namespace TMPLAB1
         private void DrawTableRow(string name, string type)
         {
             // Обрезаем слишком длинные строки
-            if (name.Length > 33) name = name.Substring(0, 30) + "...";
-            if (type.Length > 17) type = type.Substring(0, 14) + "...";
+            if (name.Length > 33)
+            { 
+                name = name.Substring(0, 30) + "...";
+            }
+            if (type.Length > 17)
+            { 
+                type = type.Substring(0, 14) + "...";
+            } 
 
             string row = $"│ {name,-33} │ {type,-17} │";
             Console.WriteLine(row);
@@ -851,23 +919,23 @@ namespace TMPLAB1
             {
                 int offset = Header.p_FirstRecord;
 
-                while (offset != -1 && offset < fs.Length)
+                while ((offset != -1) && (offset < fs.Length))
                 {
                     fs.Seek(offset, SeekOrigin.Begin);
 
-                    byte flag = br.ReadByte();
-                    int p_FirstComp = br.ReadInt32();
-                    int p_Next = br.ReadInt32();
-                    byte[] nameBytes = br.ReadBytes(Header.RecordLen);
-                    string name = Encoding.UTF8.GetString(nameBytes).TrimEnd('\0');
+                    Record.FlagDelete = br.ReadByte();
+                    Record.p_FirstComp = br.ReadInt32();
+                    Record.p_Next = br.ReadInt32();
+                    Record.Name = br.ReadBytes(Header.RecordLen);
+                    string name = Encoding.UTF8.GetString(Record.Name).TrimEnd('\0');
 
-                    if (flag != 0xFF) // Только активные
+                    if (Record.FlagDelete != 0xFF) // Только активные
                     {
-                        string type = p_FirstComp == -1 ? "Деталь" : "Узел/Изделие";
+                        string type = Record.IsDetail ? "Деталь" : "Узел/Изделие";
                         components.Add(new Component { Name = name, Type = type });
                     }
 
-                    offset = p_Next;
+                    offset = Record.p_Next;
                 }
             }
 

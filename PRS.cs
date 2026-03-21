@@ -13,9 +13,14 @@ namespace TMPLAB1
 {
     public class PRS : IFile
     {
+        const int PRS_NEXT_OFFSET = 11;
+        const int PRS_RECORD_SIZE = 15;
+        const int PRS_MULTI_OFFSET = 9;
+        const int PRD_HEADER_SIGNATURE_SIZE = 2;
+        const int PRD_FIRSTCOMP_OFFSET = 1;
         public bool IsOpen { get; set; }
         public string CurrentFileName { get; set; }
-
+        
         public HeaderPRS Header { get; set; } = new HeaderPRS();
 
         public IFileHeader FileHeader
@@ -57,7 +62,9 @@ namespace TMPLAB1
         public void PrintDev()
         {
             if (!IsOpen)
+            { 
                 throw new Exception("Файл не открыт");
+            } 
 
             try
             {
@@ -110,7 +117,10 @@ namespace TMPLAB1
 
         public void Open()
         {
-            if (!File.Exists(CurrentFileName)) throw new Exception($"Файла {CurrentFileName} не существует");
+            if (!File.Exists(CurrentFileName))
+            { 
+                throw new Exception($"Файла {CurrentFileName} не существует");
+            } 
 
             try
             {
@@ -141,7 +151,7 @@ namespace TMPLAB1
         {
             int offset = firstRecord;
 
-            while (offset != -1 && offset < stream.Length)
+            while ((offset != -1) && (offset < stream.Length))
             {
                 stream.Seek(offset, SeekOrigin.Begin);
                 (RecordPRD read, string nameStr) = ReadRecord(reader, RecordLen);
@@ -163,7 +173,10 @@ namespace TMPLAB1
                 .Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
 
             if (parts.Length != 2)
+            { 
                 throw new Exception("Формат: input <Компонент> <Деталь>");
+            }
+                
 
             string mainComponent = parts[0];
             string detailComponent = parts[1];
@@ -183,25 +196,29 @@ namespace TMPLAB1
             Header.p_FirstRecord = prsReader.ReadInt32();
             Header.p_FreeSpace = prsReader.ReadInt32();
 
-            prdStream.Seek(2, SeekOrigin.Begin);
+            prdStream.Seek(PRD_HEADER_SIGNATURE_SIZE, SeekOrigin.Begin);
             filePRD.Header.RecordLen = prdReader.ReadUInt16();
             filePRD.Header.p_FirstRecord = prdReader.ReadInt32();
 
-            int mainRecordOffset = FindComponent(prdStream, prdReader,
-                filePRD.Header.p_FirstRecord, mainComponent, filePRD.Header.RecordLen);
+            int mainRecordOffset = FindComponent(prdStream, prdReader, filePRD.Header.p_FirstRecord, mainComponent, filePRD.Header.RecordLen);
 
-            int detailRecordOffset = FindComponent(prdStream, prdReader,
-                filePRD.Header.p_FirstRecord, detailComponent, filePRD.Header.RecordLen);
+            int detailRecordOffset = FindComponent(prdStream, prdReader, filePRD.Header.p_FirstRecord, detailComponent, filePRD.Header.RecordLen);
 
             if (mainRecordOffset == -1)
+            { 
                 throw new Exception($"Компонент '{mainComponent}' отсутствует в PRD");
+            }
+
 
             if (detailRecordOffset == -1)
+            { 
                 throw new Exception($"Компонент '{detailComponent}' отсутствует в PRD");
+            }
+                
 
             int currentOffset = Header.p_FirstRecord;
 
-            while (currentOffset != -1 && currentOffset + 15 <= prsStream.Length)
+            while ((currentOffset != -1) && ((currentOffset + PRS_RECORD_SIZE) <= prsStream.Length))
             {
                 prsStream.Seek(currentOffset, SeekOrigin.Begin);
 
@@ -224,7 +241,7 @@ namespace TMPLAB1
                         return $"Увеличина кратность: {mainComponent} -> {detailComponent}";
                     }
 
-                    prsStream.Seek(currentOffset + 1 + 4 + 4, SeekOrigin.Begin);
+                    prsStream.Seek(currentOffset + PRS_MULTI_OFFSET, SeekOrigin.Begin);
                     prsWriter.Write(Record.MultiOccurrence);
                 }
 
@@ -247,16 +264,16 @@ namespace TMPLAB1
             prsWriter.Write(Record.p_Next);
 
             Header.p_FirstRecord = newRecordOffset;
-            Header.p_FreeSpace += 15;
+            Header.p_FreeSpace += PRS_RECORD_SIZE;
 
             prsStream.Seek(0, SeekOrigin.Begin);
             prsWriter.Write(Header.p_FirstRecord);
             prsWriter.Write(Header.p_FreeSpace);
 
-            prdStream.Seek(mainRecordOffset + 1, SeekOrigin.Begin);
+            prdStream.Seek(mainRecordOffset + PRD_FIRSTCOMP_OFFSET, SeekOrigin.Begin);
             int firstComp = prdReader.ReadInt32();
 
-            prdStream.Seek(mainRecordOffset + 1, SeekOrigin.Begin);
+            prdStream.Seek(mainRecordOffset + PRD_FIRSTCOMP_OFFSET, SeekOrigin.Begin);
             prdWriter.Write(newRecordOffset);
 
             return $"Добавлена связь: {mainComponent} -> {detailComponent}";
@@ -288,7 +305,7 @@ namespace TMPLAB1
                     return;
                 }
 
-                prdStream.Seek(2, SeekOrigin.Begin);
+                prdStream.Seek(PRD_HEADER_SIGNATURE_SIZE, SeekOrigin.Begin);
                 filePRD.Header.RecordLen = prdReader.ReadUInt16();
                 filePRD.Header.p_FirstRecord = prdReader.ReadInt32();
 
@@ -305,13 +322,10 @@ namespace TMPLAB1
                         prdStream.Seek(Record.p_Product, SeekOrigin.Begin);
                         (filePRD.Record, productName) = ReadRecord(prdReader, filePRD.Header.RecordLen);
 
-                        if (argument != "*")
+                        if (argument != "*" && argument != productName)
                         {
-                            if (argument != productName)
-                            {
-                                currentOffset = Record.p_Next;
-                                continue;
-                            }
+                            currentOffset = Record.p_Next;
+                            continue;
                         }
 
                         prdStream.Seek(Record.p_Detail, SeekOrigin.Begin);
@@ -327,7 +341,10 @@ namespace TMPLAB1
                     currentOffset = Record.p_Next;
                 }
 
-                if (!foundRelation) throw new Exception($"Компонент '{argument}' не найден, либо является деталью!");
+                if (!foundRelation)
+                { 
+                    throw new Exception($"Компонент '{argument}' не найден, либо является деталью!");
+                } 
             }
         }
 
@@ -368,15 +385,21 @@ namespace TMPLAB1
                     throw new ArgumentNullException("Файл пуст.");
                 }
 
-                prdStream.Seek(2, SeekOrigin.Begin);
+                prdStream.Seek(PRD_HEADER_SIGNATURE_SIZE, SeekOrigin.Begin);
                 filePRD.Header.RecordLen = prdReader.ReadUInt16();
                 filePRD.Header.p_FirstRecord = prdReader.ReadInt32();
 
                 int productOffset = FindComponent(prdStream, prdReader, filePRD.Header.p_FirstRecord, product, filePRD.Header.RecordLen);
                 int detailOffset = FindComponent(prdStream, prdReader, filePRD.Header.p_FirstRecord, detail, filePRD.Header.RecordLen);
 
-                if (productOffset == -1) throw new Exception("Указнного узла/изделия не существует!");
-                if (detailOffset == -1) throw new Exception("Указнной детали не существует!");
+                if (productOffset == -1)
+                { 
+                    throw new Exception("Указнного узла/изделия не существует!");
+                }
+                if (detailOffset == -1)
+                { 
+                    throw new Exception("Указнной детали не существует!");
+                } 
 
                 while (currentOffset != -1)
                 {
@@ -388,7 +411,7 @@ namespace TMPLAB1
                     Record.MultiOccurrence = prsReader.ReadUInt16();
                     Record.p_Next = prsReader.ReadInt32();
 
-                    if (!Record.IsDeleted && Record.p_Product == productOffset && Record.p_Detail == detailOffset)
+                    if (!Record.IsDeleted && (Record.p_Product == productOffset) && (Record.p_Detail == detailOffset))
                     {
                         prsStream.Seek(currentOffset, SeekOrigin.Begin);
                         if (Record.MultiOccurrence > 1)
@@ -414,9 +437,15 @@ namespace TMPLAB1
         public void Restore(string name)
         {
 
-            if (!IsOpen) throw new Exception("Файл не открыт");
+            if (!IsOpen)
+            { 
+                throw new Exception("Файл не открыт");
+            }
 
-            if (string.IsNullOrEmpty(name)) throw new Exception("Укажите связь для восстановления");
+            if (string.IsNullOrEmpty(name))
+            { 
+                throw new Exception("Укажите связь для восстановления");
+            } 
 
             if (name == "*")
             {
@@ -455,15 +484,21 @@ namespace TMPLAB1
                     return;
                 }
 
-                prdStream.Seek(2, SeekOrigin.Begin);
+                prdStream.Seek(PRD_HEADER_SIGNATURE_SIZE, SeekOrigin.Begin);
                 filePRD.Header.RecordLen = prdReader.ReadUInt16();
                 filePRD.Header.p_FirstRecord = prdReader.ReadInt32();
 
                 int productOffset = FindComponent(prdStream, prdReader, filePRD.Header.p_FirstRecord, product, filePRD.Header.RecordLen);
                 int detailOffset = FindComponent(prdStream, prdReader, filePRD.Header.p_FirstRecord, detail, filePRD.Header.RecordLen);
 
-                if (productOffset == -1) throw new Exception("Указнного узла/изделия не существует!");
-                if (detailOffset == -1) throw new Exception("Указнной детали не существует!");
+                if (productOffset == -1)
+                {
+                    throw new Exception("Указнного узла/изделия не существует!");
+                }
+                if (detailOffset == -1)
+                {
+                    throw new Exception("Указнной детали не существует!");
+                }
 
                 while (currentOffset != -1)
                 {
@@ -541,7 +576,6 @@ namespace TMPLAB1
                     {
                         prsStream.Seek(currentOffset, SeekOrigin.Begin);
                         prsWriter.Write((byte)0x00);
-                        //ChangeOccurance(Record.p_Product, Header.p_FirstRecord, prsReader, prsWriter, prsStream, true);
                         count++;
                     }
 
@@ -584,7 +618,7 @@ namespace TMPLAB1
                 int currentOffset = firstRecord;
                 List<(int oldOffset, long newOffset, int p_Product, int p_Detail, ushort multiOcc)> liveRecords = new();
 
-                while (currentOffset != -1 && currentOffset < source.Length)
+                while ((currentOffset != -1) && (currentOffset < source.Length))
                 {
                     source.Seek(currentOffset, SeekOrigin.Begin);
 
@@ -609,8 +643,7 @@ namespace TMPLAB1
 
                         liveRecords.Add((currentOffset, recordPos, Record.p_Product, Record.p_Detail, Record.MultiOccurrence));
 
-                        if (newFirstRecord == -1)
-                            newFirstRecord = (int)recordPos;
+                        if (newFirstRecord == -1) newFirstRecord = (int)recordPos;
                     }
                     else
                     {
@@ -623,9 +656,17 @@ namespace TMPLAB1
                 for (int i = 0; i < liveRecords.Count; i++)
                 {
                     long recordPos = liveRecords[i].newOffset;
-                    int nextPointer = (i < liveRecords.Count - 1) ? (int)liveRecords[i + 1].newOffset : -1;
+                    int nextPointer;
+                    if (i < liveRecords.Count - 1)
+                    {
+                        nextPointer = (int)liveRecords[i + 1].newOffset;
+                    }
+                    else
+                    {
+                        nextPointer = -1;
+                    }
 
-                    dest.Seek(recordPos + 11, SeekOrigin.Begin);
+                    dest.Seek(recordPos + PRS_NEXT_OFFSET, SeekOrigin.Begin);
                     bw.Write(nextPointer);
                 }
 
@@ -633,7 +674,10 @@ namespace TMPLAB1
                 bw.Write(newFirstRecord);
                 bw.Write(0);
             }
-            catch (Exception e) { Console.Write($"Ошибка: {e.Message}"); }
+            catch (Exception e) 
+            { 
+                Console.Write($"Ошибка: {e.Message}"); 
+            }
 
             Header.p_FirstRecord = newFirstRecord;
             Header.p_FreeSpace = 0;
