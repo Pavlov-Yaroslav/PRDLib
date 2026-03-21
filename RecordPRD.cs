@@ -6,6 +6,13 @@ using System.Threading.Tasks;
 
 namespace TMPLAB1
 {
+    /// <summary>
+    /// Класс записи: 
+    /// флаг удаление, 
+    /// указатель на первую логическую запись списка спецификаций,
+    /// указатель на следующую запись
+    /// имя компонента
+    /// </summary>
     public class RecordPRD : IRecord
     {
         public byte FlagDelete { get; set; }

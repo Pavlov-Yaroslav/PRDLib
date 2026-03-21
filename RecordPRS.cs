@@ -6,6 +6,14 @@ using System.Threading.Tasks;
 
 namespace TMPLAB1
 {
+    /// <summary>
+    /// Класс записи: 
+    /// флаг удаление, 
+    /// указатель на изделие/узел,
+    /// указатель на деталь,
+    /// кратность вхождения детали,
+    /// указатель на следующую запись
+    /// </summary>
     public class RecordPRS : IRecord
     {
         public byte FlagDelete { get; set; }

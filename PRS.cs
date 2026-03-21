@@ -1,26 +1,29 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Mail;
-using System.Reflection.PortableExecutable;
-using System.Security.AccessControl;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
-using static System.Net.Mime.MediaTypeNames;
+﻿using System.Text;
 
 namespace TMPLAB1
 {
     public class PRS : IFile
     {
+        // Смещение до p_Next внутри записи:
+        // flag(1) + p_Product(4) + p_Detail(4) + multiOcc(2) = 11
         const int PRS_NEXT_OFFSET = 11;
+
+        // Полный размер записи PRS:
+        // 1 + 4 + 4 + 2 + 4 = 15 байт
         const int PRS_RECORD_SIZE = 15;
+
+        // Смещение до поля MultiOccurrence внутри записи
         const int PRS_MULTI_OFFSET = 9;
+
+        // Размер сигнатуры PRD (используется при чтении связанного файла)
         const int PRD_HEADER_SIGNATURE_SIZE = 2;
+
+        // Смещение до p_FirstComp в PRD записи: flag(1)
         const int PRD_FIRSTCOMP_OFFSET = 1;
+
         public bool IsOpen { get; set; }
         public string CurrentFileName { get; set; }
-        
+
         public HeaderPRS Header { get; set; } = new HeaderPRS();
 
         public IFileHeader FileHeader
@@ -37,18 +40,20 @@ namespace TMPLAB1
             set => Record = (RecordPRS)value;
         }
 
-        public PRS()
-        {
-
-        }
+        public PRS() { }
 
         public PRS(string fileName)
         {
             CurrentFileName = fileName;
+
+            // Пустой файл: нет записей
             Header.p_FirstRecord = -1;
             Header.p_FreeSpace = 0;
         }
 
+        /// <summary>
+        /// Создает пустой PRS-файл (только заголовок)
+        /// </summary>
         public void Create()
         {
             using (BinaryWriter bw = new BinaryWriter(File.Create(CurrentFileName)))
@@ -59,6 +64,9 @@ namespace TMPLAB1
             }
         }
 
+        /// <summary>
+        /// Отладочный вывод всех записей PRS
+        /// </summary>
         public void PrintDev()
         {
             if (!IsOpen)
@@ -115,6 +123,9 @@ namespace TMPLAB1
             }
         }
 
+        /// <summary>
+        /// Просто помечает файл как открытый
+        /// </summary>
         public void Open()
         {
             if (!File.Exists(CurrentFileName))
@@ -133,6 +144,9 @@ namespace TMPLAB1
             }
         }
 
+        /// <summary>
+        /// Чтение записи PRD (используется для получения имен компонентов)
+        /// </summary>
         private (RecordPRD, string) ReadRecord(BinaryReader br, ushort RecordLen)
         {
             RecordPRD read = new RecordPRD(
@@ -146,7 +160,9 @@ namespace TMPLAB1
             return (read, recordName);
         }
 
-
+        /// <summary>
+        /// Поиск компонента в PRD по имени → возвращает offset
+        /// </summary>
         private int FindComponent(FileStream stream, BinaryReader reader, int firstRecord, string name, ushort RecordLen)
         {
             int offset = firstRecord;
@@ -164,6 +180,10 @@ namespace TMPLAB1
             return -1;
         }
 
+        /// <summary>
+        /// Добавляет связь (изделие -> деталь)
+        /// или увеличивает кратность, если уже существует
+        /// </summary>
         public string Input(string argument)
         {
             string[] parts = argument
@@ -181,6 +201,7 @@ namespace TMPLAB1
             string mainComponent = parts[0];
             string detailComponent = parts[1];
 
+            // Открываем PRD (чтобы получить указатели)
             string prdFileName = Path.ChangeExtension(CurrentFileName, ".prd");
             PRD filePRD = new PRD(prdFileName);
 
@@ -201,7 +222,6 @@ namespace TMPLAB1
             filePRD.Header.p_FirstRecord = prdReader.ReadInt32();
 
             int mainRecordOffset = FindComponent(prdStream, prdReader, filePRD.Header.p_FirstRecord, mainComponent, filePRD.Header.RecordLen);
-
             int detailRecordOffset = FindComponent(prdStream, prdReader, filePRD.Header.p_FirstRecord, detailComponent, filePRD.Header.RecordLen);
 
             if (mainRecordOffset == -1)
@@ -348,6 +368,9 @@ namespace TMPLAB1
             }
         }
 
+        /// <summary>
+        /// Удаление связи (или уменьшение кратности)
+        /// </summary>
         public string Delete(string argument)
         {
             if (!IsOpen) throw new Exception("Файл не открыт");
@@ -434,6 +457,11 @@ namespace TMPLAB1
                 throw new Exception("Связи не существует!");
             }
         }
+
+        /// <summary>
+        /// Сжатие файла: удаляет все помеченные записи
+        /// и пересобирает список
+        /// </summary>
         public void Restore(string name)
         {
 
@@ -539,6 +567,9 @@ namespace TMPLAB1
             }
         }
 
+        /// <summary>
+        /// Восстановление всех записей, помеченных на удаление
+        /// </summary>
         private void RestoreAll()
         {
 
@@ -587,6 +618,10 @@ namespace TMPLAB1
             }
         }
 
+        /// <summary>
+        /// Сжатие файла: удаляет все помеченные записи
+        /// и пересобирает список
+        /// </summary>
         public void Truncate()
         {
             if (!IsOpen)

@@ -1,21 +1,24 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Reflection.PortableExecutable;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
+﻿using System.Text;
 
+/// <summary>
+/// Тип компонента.
+/// </summary>
 enum Type { PRODUCT, ASSEMBLY, DETAIL, UNKNOWN };
 
 namespace TMPLAB1
 {
+    /// <summary>
+    /// Класс для работы с PRD-файлом (список компонентов).
+    /// Поддерживает создание, чтение, удаление, восстановление и сжатие записей.
+    /// </summary>
     public class PRD : IFile
     {
+        // Смещение до поля p_Next в записи PRD: flag(1) + p_FirstComp(4)
         const int PRD_NEXT_OFFSET = 5;
+
+        // Смещение до поля p_Next в записи PRS: flag(1) + p_Product(4) + p_Detail(4) + multiOcc(2)
         const int PRS_NEXT_OFFSET = 11;
+
         public byte[] NameSpec { get; set; } = new byte[16];
         public bool IsOpen { get; set; }
         public string CurrentFileName { get; set; }
@@ -38,11 +41,18 @@ namespace TMPLAB1
             set => Record = (RecordPRD)value;
         }
 
+        /// <summary>
+        /// Инициализация объекта PRD без создания файла.
+        /// </summary>
         public PRD(string fileName)
         {
             CurrentFileName = fileName;
             _currentDirectory = Path.GetDirectoryName(fileName) ?? string.Empty;
         }
+
+        /// <summary>
+        /// Инициализация объекта PRD с заданной длиной записи.
+        /// </summary>
         public PRD(string fileName, string recLen)
         {
             CurrentFileName = fileName;
@@ -52,22 +62,27 @@ namespace TMPLAB1
             Header.p_FreeSpace = 0;
         }
 
+        /// <summary>
+        /// Читает запись PRD (флаг, указатели и имя) из текущей позиции потока.
+        /// </summary>
         private (RecordPRD, string) ReadRecord(BinaryReader br)
         {
             RecordPRD read = new RecordPRD(
-                            br.ReadByte(),
-                            br.ReadInt32(),
-                            br.ReadInt32(),
-                            br.ReadBytes(Header.RecordLen)
-                        );
+                br.ReadByte(),
+                br.ReadInt32(),
+                br.ReadInt32(),
+                br.ReadBytes(Header.RecordLen)
+            );
 
             string recordName = Encoding.UTF8.GetString(read.Name).TrimEnd('\0');
             return (read, recordName);
         }
 
+        /// <summary>
+        /// Создает новый PRD-файл и связанный PRS-файл.
+        /// </summary>
         public void Create()
         {
-
             string pureName = Path.GetFileNameWithoutExtension(CurrentFileName);
             string prsName = pureName + ".prs";
 
@@ -95,7 +110,6 @@ namespace TMPLAB1
                             throw new Exception($"Ошибка: Неверная сигнатура файла. Ожидание 'PS', получено '{signatureStr}'");
                         }
                     }
-
                 }
                 catch (Exception ex)
                 {
@@ -133,12 +147,15 @@ namespace TMPLAB1
             Console.WriteLine($"Файл {CurrentFileName} открыт для работы.");
         }
 
+        /// <summary>
+        /// Открывает существующий PRD-файл.
+        /// </summary>
         public void Open()
         {
             if (!File.Exists(CurrentFileName))
-            { 
+            {
                 throw new Exception($"Файла {CurrentFileName} не существует");
-            } 
+            }
 
             try
             {
@@ -172,6 +189,9 @@ namespace TMPLAB1
             }
         }
 
+        /// <summary>
+        /// Преобразует строковое представление типа в enum.
+        /// </summary>
         private Type GetComponentType(string typeName)
         {
             if (typeName == "Изделие") return Type.PRODUCT;
@@ -181,12 +201,15 @@ namespace TMPLAB1
             return Type.UNKNOWN;
         }
 
+        /// <summary>
+        /// Добавляет новый компонент в файл.
+        /// </summary>
         public string Input(string argument)
         {
             if (!IsOpen)
-            { 
+            {
                 throw new Exception("Файл не открыт");
-            } 
+            }
 
             string[] parts = argument
                 .Replace("(", "")
@@ -199,13 +222,13 @@ namespace TMPLAB1
             Type type = GetComponentType(typeStr);
 
             if (type == Type.UNKNOWN)
-            { 
+            {
                 throw new Exception("Неизвестный тип компонента");
-            } 
+            }
 
             if (name.Length > Header.RecordLen)
-            { 
-                 throw new Exception("Превышена максимальная длина имени");
+            {
+                throw new Exception("Превышена максимальная длина имени");
             }
 
             byte[] nameBytes = Encoding.UTF8.GetBytes(name);
@@ -217,6 +240,8 @@ namespace TMPLAB1
             using (BinaryWriter bw = new BinaryWriter(fs))
             {
                 int currentOffset = Header.p_FirstRecord;
+
+                // Проверка на уникальность имени компонента
                 while ((currentOffset != -1) && (currentOffset < fs.Length))
                 {
                     fs.Seek(currentOffset, SeekOrigin.Begin);
@@ -227,6 +252,7 @@ namespace TMPLAB1
                     {
                         throw new Exception($"Компонент с именем '{name}' уже существует!");
                     }
+
                     currentOffset = read.p_Next;
                 }
 
@@ -242,12 +268,14 @@ namespace TMPLAB1
                 bw.Write(newRecord.FlagDelete);
                 bw.Write(newRecord.p_FirstComp);
                 bw.Write(newRecord.p_Next);
+
                 byte[] nameBuffer = new byte[Header.RecordLen];
                 Array.Copy(nameBytes, nameBuffer, Math.Min(nameBytes.Length, nameBuffer.Length));
 
                 bw.Write(nameBuffer);
                 bw.Flush();
 
+                // Обновление заголовка
                 fs.Seek(4, SeekOrigin.Begin);
                 bw.Write(newOffset);
 
@@ -262,6 +290,9 @@ namespace TMPLAB1
             return $"Компонент '{name}' ({typeStr}) добавлен.";
         }
 
+        /// <summary>
+        /// Проверяет наличие ссылок на компонент в PRS.
+        /// </summary>
         private void CheckRelate(int foundOffset, PRS filePRS)
         {
             using (FileStream prsStream = new(filePRS.CurrentFileName, FileMode.Open, FileAccess.ReadWrite))
@@ -283,10 +314,9 @@ namespace TMPLAB1
                     filePRS.Record.p_Detail = prsReader.ReadInt32();
 
                     if ((filePRS.Record.p_Product == foundOffset) || (filePRS.Record.p_Detail == foundOffset))
-                    { 
+                    {
                         throw new Exception("На компонент имеются ссылки в спецификациях других компонент");
-                    } 
-                        
+                    }
 
                     filePRS.Record.MultiOccurrence = prsReader.ReadUInt16();
                     filePRS.Record.p_Next = prsReader.ReadInt32();
@@ -296,17 +326,20 @@ namespace TMPLAB1
             }
         }
 
+        /// <summary>
+        /// Помечает компонент как удаленный.
+        /// </summary>
         public string Delete(string name)
         {
             if (!IsOpen)
-            { 
+            {
                 throw new Exception("Файл не открыт");
             }
 
             if (string.IsNullOrEmpty(name))
-            { 
+            {
                 throw new Exception("Укажите имя компонента для удаления");
-            } 
+            }
 
             int foundOffset = -1;
 
@@ -318,6 +351,7 @@ namespace TMPLAB1
             using (BinaryReader br = new BinaryReader(fs))
             {
                 int currentOffset = Header.p_FirstRecord;
+
                 while ((currentOffset != -1) && (currentOffset < fs.Length))
                 {
                     fs.Seek(currentOffset, SeekOrigin.Begin);
@@ -329,13 +363,17 @@ namespace TMPLAB1
                         foundOffset = currentOffset;
                         break;
                     }
+
                     currentOffset = read.p_Next;
                 }
             }
 
             CheckRelate(foundOffset, filePRS);
 
-            if (foundOffset == -1) throw new Exception($"Компонент '{name}' не найден");
+            if (foundOffset == -1)
+            {
+                throw new Exception($"Компонент '{name}' не найден");
+            }
 
             using (FileStream fs = new FileStream(CurrentFileName, FileMode.Open, FileAccess.ReadWrite))
             using (BinaryWriter bw = new BinaryWriter(fs))
@@ -343,20 +381,24 @@ namespace TMPLAB1
                 fs.Seek(foundOffset, SeekOrigin.Begin);
                 bw.Write((byte)0xFF);
             }
+
             return $"Компонент '{name}' помечен как удаленный.";
         }
 
+        /// <summary>
+        /// Восстанавливает компонент.
+        /// </summary>
         public void Restore(string name)
         {
             if (!IsOpen)
-            { 
+            {
                 throw new Exception("Файл не открыт");
             }
 
             if (string.IsNullOrEmpty(name))
-            { 
+            {
                 throw new Exception("Укажите имя компонента для восстановления");
-            } 
+            }
 
             if (name == "*")
             {
@@ -379,10 +421,10 @@ namespace TMPLAB1
                     if (nameStr == name)
                     {
                         if (!read.IsDeleted)
-                        { 
+                        {
                             throw new Exception($"Компонент '{name}' не удален");
                         }
-                            
+
                         foundOffset = currentOffset;
                         break;
                     }
@@ -391,10 +433,9 @@ namespace TMPLAB1
                 }
 
                 if (foundOffset == -1)
-                { 
+                {
                     throw new Exception($"Компонент '{name}' не найден");
                 }
-                    
 
                 using (BinaryWriter bw = new BinaryWriter(fs))
                 {
@@ -406,6 +447,9 @@ namespace TMPLAB1
             }
         }
 
+        /// <summary>
+        /// Восстанавливает все удаленные компоненты.
+        /// </summary>
         private void RestoreAll()
         {
             using (FileStream fs = new FileStream(CurrentFileName, FileMode.Open, FileAccess.ReadWrite))
@@ -435,6 +479,10 @@ namespace TMPLAB1
             }
         }
 
+        /// <summary>
+        /// Удаляет помеченные записи и пересобирает файл.
+        /// Обновляет смещения записей и синхронизирует PRS.
+        /// </summary>
         public void Truncate()
         {
             string tempFile = Path.GetTempFileName();
@@ -550,6 +598,9 @@ namespace TMPLAB1
             }
         }
 
+        /// <summary>
+        /// Обновляет указатели в PRS-файле после сжатия PRD.
+        /// </summary>
         private void UpdatePrsAfterPrdTruncate(string prsFileName, Dictionary<int, int> prdOffsetMap)
         {
             string tempFile = Path.GetTempFileName();
@@ -684,6 +735,9 @@ namespace TMPLAB1
             }
         }
 
+        /// <summary>
+        /// Выводит на экран PRD состав компонента в виде дерева
+        /// </summary>
         public void Print(string name)
         {
             if (name == "*")
@@ -741,6 +795,9 @@ namespace TMPLAB1
             }
         }
 
+        /// <summary>
+        /// Создает карту указателей PRS
+        /// </summary>
         private Dictionary<string, List<(string childName, bool isAssembly, string childFirstCompRef)>> 
         BuildChildrenMap(FileStream prsStream, FileStream prdStream, BinaryReader prsReader, BinaryReader prdReader)
         {
@@ -795,6 +852,9 @@ namespace TMPLAB1
             return childrenMap;
         }
 
+        /// <summary>
+        /// Рисует древовидную структуру
+        /// </summary>
         private void DrawTreeFromMap(
             Dictionary<string, List<(string childName, bool isAssembly, string childRef)>> childrenMap,
             string parentName, string prefix)
@@ -826,7 +886,9 @@ namespace TMPLAB1
             }
         }
 
-
+        /// <summary>
+        /// Выводит все компоненты в виде таблицы
+        /// </summary>
         private void PrintAll()
         {
             try
@@ -871,6 +933,9 @@ namespace TMPLAB1
             }
         }
 
+        /// <summary>
+        /// Рисует таблицу компонентов
+        /// </summary>
         private void DrawTableHeader()
         {
             string topLine = "┌───────────────────────────────────┬───────────────────┐";
@@ -904,12 +969,18 @@ namespace TMPLAB1
             Console.WriteLine(bottomLine);
         }
 
+        /// <summary>
+        /// Класс компонента для записи в список
+        /// </summary>
         public class Component
         {
             public string Name { get; set; }
             public string Type { get; set; }
         }
 
+        /// <summary>
+        /// Записывает компоненты в список и возвращает его
+        /// </summary>
         public List<Component> GetAllComponents()
         {
             var components = new List<Component>();

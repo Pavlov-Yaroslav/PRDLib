@@ -6,6 +6,14 @@ using System.Threading.Tasks;
 
 namespace TMPLAB1
 {
+    /// <summary>
+    /// Заголовочная запись (первая запись файла):
+    /// сигнатура,
+    /// указатель на логическую первую запись
+    /// указатель на свободное пространство
+    /// имя файла спецификации
+    /// Длина записи
+    /// </summary>
     public class HeaderPRD : IFileHeader
     {
         private ushort recordLen;
@@ -20,10 +28,14 @@ namespace TMPLAB1
             set
             {
                 if (value < 8)
+                { 
                     throw new Exception("Длина записи слишком маленькая");
+                }
 
                 if (value > 1024)
+                { 
                     throw new Exception("Длина записи слишком большая");
+                }
 
                 recordLen = value;
             }
