@@ -65,65 +65,6 @@ namespace TMPLAB1
         }
 
         /// <summary>
-        /// Отладочный вывод всех записей PRS
-        /// </summary>
-        public void PrintDev()
-        {
-            if (!IsOpen)
-            { 
-                throw new Exception("Файл не открыт");
-            } 
-
-            try
-            {
-                using (FileStream fs = new FileStream(CurrentFileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                using (BinaryReader br = new BinaryReader(fs))
-                {
-                    fs.Seek(0, SeekOrigin.Begin);
-
-                    Header.p_FirstRecord = br.ReadInt32();
-                    Header.p_FreeSpace = br.ReadInt32();
-
-                    Console.WriteLine($"HEADER | FirstRecord: {Header.p_FirstRecord} | FreeSpace: {Header.p_FreeSpace}");
-
-                    if (Header.p_FirstRecord == -1)
-                    {
-                        Console.WriteLine("Записей нет.");
-                        return;
-                    }
-
-                    int offset = Header.p_FirstRecord;
-
-                    while (offset != -1 && offset < fs.Length)
-                    {
-                        fs.Seek(offset, SeekOrigin.Begin);
-
-                        RecordPRS record = new RecordPRS
-                        {
-                            FlagDelete = br.ReadByte(),
-                            p_Product = br.ReadInt32(),
-                            p_Detail = br.ReadInt32(),
-                            MultiOccurrence = br.ReadUInt16(),
-                            p_Next = br.ReadInt32()
-                        };
-
-                        string deleted = record.IsDeleted ? " (удален)" : "";
-
-                        Console.WriteLine(
-                            $"Offset: {offset} | Product: {record.p_Product} | Detail: {record.p_Detail} | MultiOccurrence: {record.MultiOccurrence}{deleted} | Next: {record.p_Next}"
-                        );
-
-                        offset = record.p_Next;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("Ошибка чтения PRS: " + ex.Message);
-            }
-        }
-
-        /// <summary>
         /// Просто помечает файл как открытый
         /// </summary>
         public void Open()

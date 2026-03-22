@@ -15,8 +15,6 @@ namespace TMPLAB1
         public void Print(string name);
         public void Restore(string name);
         public void Truncate();
-        public void PrintDev();
-
         public bool IsOpen { get; set; }
         public string CurrentFileName { get; set; }
         public IFileHeader FileHeader { get; set; }

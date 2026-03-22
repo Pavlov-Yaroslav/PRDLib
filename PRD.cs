@@ -692,49 +692,6 @@ namespace TMPLAB1
             }
         }
 
-        public void PrintDev()
-        {
-            if (!IsOpen)
-                throw new Exception("Файл не открыт");
-
-            try
-            {
-                using (FileStream fs = new FileStream(CurrentFileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                using (BinaryReader br = new BinaryReader(fs))
-                {
-                    if (Header.p_FirstRecord == -1)
-                    {
-                        Console.WriteLine("Записей нет.");
-                        return;
-                    }
-
-                    int offset = Header.p_FirstRecord;
-
-                    string NameSpec = Encoding.UTF8.GetString(Header.NameSpec);
-
-                    Console.WriteLine($"HEADER: p_FirstRecord {Header.p_FirstRecord} | NameSpec: {NameSpec} | FreeSpace: {Header.p_FreeSpace} | RecordLen: {Header.RecordLen}");
-
-                    while ((offset != -1) && (offset < fs.Length))
-                    {
-                        fs.Seek(offset, SeekOrigin.Begin);
-
-                        (RecordPRD read, string recordName) = ReadRecord(br);
-
-                        string type = read.IsDetail ? "Деталь" : read.IsAssembly ? "Узел/Изделие" : "Неизвестно";
-                        string deleted = read.IsDeleted ? " (удален)" : "";
-
-                        Console.WriteLine($"Offset: {offset} | {type}{deleted} | FirstComp: {read.p_FirstComp} | Next: {read.p_Next} | Name: {recordName}");
-
-                        offset = read.p_Next;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("Ошибка чтения: " + ex.Message);
-            }
-        }
-
         /// <summary>
         /// Выводит на экран PRD состав компонента в виде дерева
         /// </summary>
