@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PRDLib")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ef0bede7aeadb9ad730f1f8cdb6a7fac1687e60b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7d36af6421e47d905e1630e53fc37109311e0d16")]
 [assembly: System.Reflection.AssemblyProductAttribute("PRDLib")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PRDLib")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

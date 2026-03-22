@@ -768,7 +768,9 @@ namespace TMPLAB1
                     if (nameStr == name)
                     {
                         if (type == "Деталь")
+                        { 
                             throw new Exception($"Компонент '{name}' является деталью!");
+                        }
                         break;
                     }
                     currentOffset = read.p_Next;
@@ -784,7 +786,7 @@ namespace TMPLAB1
                 Console.WriteLine(name);
 
                 // === Читаем ВСЕ связи из PRS и строим карту ===
-                var childrenMap = BuildChildrenMap(prsStream, prdStream, prsReader, prdReader);
+                var childrenMap = BuildChildrenMap(prsStream, prdStream, prsReader, prdReader, filePRS);
 
                 // === Выводим дерево ===
                 if (childrenMap.ContainsKey(name))
@@ -798,10 +800,10 @@ namespace TMPLAB1
         /// <summary>
         /// Создает карту указателей PRS
         /// </summary>
-        private Dictionary<string, List<(string childName, bool isAssembly, string childFirstCompRef)>> 
-        BuildChildrenMap(FileStream prsStream, FileStream prdStream, BinaryReader prsReader, BinaryReader prdReader)
+        private Dictionary<string, List<(string childName, bool isAssembly, string childRef, ushort count)>>
+        BuildChildrenMap(FileStream prsStream, FileStream prdStream, BinaryReader prsReader, BinaryReader prdReader, PRS filePRS)
         {
-            var childrenMap = new Dictionary<string, List<(string, bool, string)>>();
+            var childrenMap = new Dictionary<string, List<(string, bool, string, ushort)>>();
 
             prsStream.Seek(0, SeekOrigin.Begin);
             int firstRecord = prsReader.ReadInt32();
@@ -813,40 +815,39 @@ namespace TMPLAB1
             {
                 prsStream.Seek(offset, SeekOrigin.Begin);
 
-                byte flagDelete = prsReader.ReadByte();
-                int p_Product = prsReader.ReadInt32();
-                int p_Detail = prsReader.ReadInt32();
-                ushort multiOcc = prsReader.ReadUInt16();
-                int p_Next = prsReader.ReadInt32();
+                filePRS.Record.FlagDelete = prsReader.ReadByte();
+                filePRS.Record.p_Product = prsReader.ReadInt32();
+                filePRS.Record.p_Detail = prsReader.ReadInt32();
+                filePRS.Record.MultiOccurrence = prsReader.ReadUInt16();
+                filePRS.Record.p_Next = prsReader.ReadInt32();
 
-                // Пропускаем удаленные записи
-                if (flagDelete == 0xFF)
+                if (filePRS.Record.IsDeleted)
                 {
-                    offset = p_Next;
+                    offset = filePRS.Record.p_Next;
                     continue;
                 }
 
-                // Читаем имя продукта (родителя)
-                prdStream.Seek(p_Product, SeekOrigin.Begin);
+                // Родитель
+                prdStream.Seek(filePRS.Record.p_Product, SeekOrigin.Begin);
                 (RecordPRD prodRec, string prodName) = ReadRecord(prdReader);
 
-                // Читаем имя детали и проверяем, является ли она узлом
-                prdStream.Seek(p_Detail, SeekOrigin.Begin);
+                // Ребенок
+                prdStream.Seek(filePRS.Record.p_Detail, SeekOrigin.Begin);
                 (RecordPRD detailRec, string detailName) = ReadRecord(prdReader);
 
                 bool isAssembly = detailRec.IsAssembly;
                 string detailRefStr = detailRec.p_FirstComp.ToString();
 
-                // Добавляем в карту
+                // Если ключа нет — создаём список
                 if (!childrenMap.ContainsKey(prodName))
-                { 
-                    childrenMap[prodName] = new List<(string, bool, string)>();
+                {
+                    childrenMap[prodName] = new List<(string, bool, string, ushort)>();
                 }
-                    
 
-                childrenMap[prodName].Add((detailName, isAssembly, detailRefStr));
+                // Добавляем ОДИН раз
+                childrenMap[prodName].Add((detailName, isAssembly, detailRefStr, filePRS.Record.MultiOccurrence));
 
-                offset = p_Next;
+                offset = filePRS.Record.p_Next;
             }
 
             return childrenMap;
@@ -856,28 +857,33 @@ namespace TMPLAB1
         /// Рисует древовидную структуру
         /// </summary>
         private void DrawTreeFromMap(
-            Dictionary<string, List<(string childName, bool isAssembly, string childRef)>> childrenMap,
+            Dictionary<string, List<(string childName, bool isAssembly, string childRef, ushort count)>> childrenMap,
             string parentName, string prefix)
         {
             if (!childrenMap.ContainsKey(parentName))
-            { 
+            {
                 return;
             }
-                
 
             var children = childrenMap[parentName];
 
             for (int i = 0; i < children.Count; i++)
             {
-                var (childName, isAssembly, _) = children[i];
+                var (childName, isAssembly, _, count) = children[i];
                 bool isLast = (i == children.Count - 1);
 
-                // Выводим текущий элемент
                 Console.Write(prefix);
                 Console.Write(isLast ? "└── " : "├── ");
-                Console.WriteLine(childName);
 
-                // Если это узел/изделие, рекурсивно выводим его детей
+                if (count > 1)
+                {
+                    Console.WriteLine($"{childName} (x{count})");
+                }
+                else
+                { 
+                    Console.WriteLine(childName);
+                }
+                  
                 if (isAssembly)
                 {
                     string newPrefix = prefix + (isLast ? "    " : "│   ");
